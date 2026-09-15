@@ -47,11 +47,9 @@ def generate_ai_report():
 
         "actions": actions,
 
-        "positioning": hotel["positioning"],
-
-        "advantages": hotel["advantages"],
-
-        "limitations": hotel["limitations"],
+        "positioning": hotel["communication_rules"]["main_message"],
+        "advantages": hotel["design"]["advantages"],
+        "limitations": hotel["design"]["limitations"],
 
         "room_strategy": room_strategy
 

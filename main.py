@@ -24,12 +24,24 @@ def health():
     }
 
 
+rom data import revenue_data
+
+
 @app.get("/api/revenue")
 def revenue():
+    total_revenue = sum(item.revenue for item in revenue_data)
+    total_orders = sum(item.orders for item in revenue_data)
+
+    average_check = 0
+    if total_orders:
+        average_check = total_revenue / total_orders
+
     return {
         "currency": "RUB",
-        "today_revenue": 0,
-        "message": "Revenue data endpoint ready"
+        "total_revenue": total_revenue,
+        "total_orders": total_orders,
+        "average_check": round(average_check, 2),
+        "days": revenue_data
     }
 
 

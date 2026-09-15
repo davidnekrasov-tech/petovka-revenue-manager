@@ -29,9 +29,6 @@ def generate_recommendations():
 
         ]
 
-    }    recommendations.append(
-        "Рекомендуется повышать цены в дни высокого спроса"
-    )
 
     return {
         "average_check": round(average_check, 2),

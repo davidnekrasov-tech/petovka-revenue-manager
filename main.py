@@ -5,6 +5,7 @@ from analytics import calculate_analytics
 from forecast import calculate_forecast
 from recommendations import generate_recommendations
 from ai_assistant import generate_ai_report
+from hotel_profile import hotel
 
 app = FastAPI(
     title="Petrovka Revenue Manager",

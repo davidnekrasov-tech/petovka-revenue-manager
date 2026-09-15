@@ -66,4 +66,3 @@ def recommendations():
 @app.get("/api/analytics")
 def analytics():
     return calculate_analytics()
-    }

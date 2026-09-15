@@ -61,3 +61,9 @@ def recommendations():
         "recommendations": [],
         "message": "Recommendation engine ready"
     }
+
+
+@app.get("/api/analytics")
+def analytics():
+    return calculate_analytics()
+    }

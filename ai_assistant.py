@@ -55,13 +55,16 @@ def generate_ai_report():
 
         "room_strategy": room_strategy
 
-    }    return {
-
-        "hotel": {
-            "name": hotel_info["name"],
-            "address": hotel_info["address"],
-            "category": hotel_info["category"]
-        },
+    return {
+        "hotel": hotel["name"],
+        "summary": summary,
+        "insights": insights,
+        "actions": actions,
+        "positioning": hotel["positioning"],
+        "advantages": hotel["advantages"],
+        "limitations": hotel["limitations"],
+        "room_strategy": room_strategy
+    }
 
 
         "summary": summary,

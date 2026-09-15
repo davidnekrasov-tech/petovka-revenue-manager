@@ -4,6 +4,7 @@ from data import revenue_data
 from analytics import calculate_analytics
 from forecast import calculate_forecast
 from recommendations import generate_recommendations
+from ai_assistant import generate_ai_report
 
 app = FastAPI(
     title="Petrovka Revenue Manager",
@@ -59,6 +60,6 @@ def recommendations():
     return generate_recommendations()
 
 
-@app.get("/api/analytics")
-def analytics():
-    return calculate_analytics()
+@app.get("/api/assistant")
+def assistant():
+    return generate_ai_report()

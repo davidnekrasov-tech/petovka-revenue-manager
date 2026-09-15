@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from datetime import datetime
 from data import revenue_data
 from analytics import calculate_analytics
-from forecast import calculate_analytics
+from forecast import calculate_forecast
 
 app = FastAPI(
     title="Petrovka Revenue Manager",

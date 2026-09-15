@@ -24,8 +24,12 @@ def generate_ai_report():
 
     actions = recommendations["recommendations"]
 
-    return {
-        "summary": summary,
-        "insights": insights,
-        "actions": actions
-    }
+    return return {
+    "hotel": hotel["name"],
+    "summary": summary,
+    "insights": insights,
+    "actions": actions,
+    "positioning": hotel["positioning"],
+    "advantages": hotel["advantages"],
+    "limitations": hotel["limitations"]
+}

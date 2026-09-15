@@ -55,42 +55,4 @@ def generate_ai_report():
 
         "room_strategy": room_strategy
 
-    return {
-        "hotel": hotel["name"],
-        "summary": summary,
-        "insights": insights,
-        "actions": actions,
-        "positioning": hotel["positioning"],
-        "advantages": hotel["advantages"],
-        "limitations": hotel["limitations"],
-        "room_strategy": room_strategy
-    }
-
-
-        "summary": summary,
-
-
-        "insights": insights,
-
-
-        "actions": actions,
-
-
-        "services": {
-            "breakfast": hotel_info["services"]["breakfast"],
-            "pets": hotel_info["services"]["pets"]
-        },
-
-
-        "strengths": hotel_info["service"]["strengths"],
-
-
-        "advantages": hotel_info["location"]["advantages"],
-
-
-        "limitations": hotel_info["design"]["limitations"],
-
-
-        "positioning": hotel_info["communication_rules"]["main_message"]
-
     }

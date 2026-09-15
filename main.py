@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from datetime import datetime
 from data import revenue_data
 
 app = FastAPI(
@@ -24,7 +25,6 @@ def health():
     }
 
 
-rom data import revenue_data
 
 
 @app.get("/api/revenue")

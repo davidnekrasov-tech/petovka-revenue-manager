@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from datetime import datetime
 from data import revenue_data
+from analytics import calculate_analytics
 
 app = FastAPI(
     title="Petrovka Revenue Manager",
@@ -29,6 +30,7 @@ def health():
 
 @app.get("/api/revenue")
 def revenue():
+    return calculate_analytics()
     total_revenue = sum(item.revenue for item in revenue_data)
     total_orders = sum(item.orders for item in revenue_data)
 

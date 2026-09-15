@@ -1,6 +1,6 @@
 from analytics import calculate_analytics
 from recommendations import generate_recommendations
-from hotel_knowledge import hotel_info
+from hotel_knowledge import hotel_info as hotel
 from room_strategy import calculate_room_strategy
 
 

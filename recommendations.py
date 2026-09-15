@@ -30,7 +30,4 @@ def generate_recommendations():
     }
 
 
-    return {
-        "average_check": round(average_check, 2),
-        "recommendations": recommendations
-    }
+   

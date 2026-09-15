@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from datetime import datetime
 from data import revenue_data
 from analytics import calculate_analytics
+from forecast import calculate_analytics
 
 app = FastAPI(
     title="Petrovka Revenue Manager",
@@ -49,10 +50,7 @@ def revenue():
 
 @app.get("/api/forecast")
 def forecast():
-    return {
-        "forecast": [],
-        "message": "Forecast module ready"
-    }
+    return calculate_forecast()
 
 
 @app.get("/api/recommendations")

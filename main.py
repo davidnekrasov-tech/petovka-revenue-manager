@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from datetime import datetime
+from data import revenue_data
 
 app = FastAPI(
     title="Petrovka Revenue Manager",

@@ -1,40 +1,35 @@
-from data import revenue_data
-
-
 def generate_recommendations():
-    total_orders = sum(item.orders for item in revenue_data)
-    total_revenue = sum(item.revenue for item in revenue_data)
 
-    if total_orders == 0:
-        return {
-            "recommendations": [
-                "Недостаточно данных для анализа"
-            ]
-        }
+    recommendations = [
 
-    average_check = total_revenue / total_orders
+        "Рекомендуется увеличить средний чек через дополнительные услуги",
 
-    recommendations = []
+        "Лучший день по выручке анализировать для повышения тарифов",
 
-    if average_check < 4000:
-        recommendations.append(
-            "Рекомендуется увеличить средний чек через дополнительные услуги"
-        )
-    else:
-        recommendations.append(
-            "Средний чек находится на хорошем уровне"
-        )
+        "Рекомендуется повышать цены в дни высокого спроса",
 
-    best_day = max(
-        revenue_data,
-        key=lambda x: x.revenue
-    )
+        "Продвигать категории Улучшенный и Комфорт для увеличения дохода",
 
-    recommendations.append(
-        f"Лучший день по выручке: {best_day.day}"
-    )
+        "Использовать центральное расположение как главное преимущество в продажах"
 
-    recommendations.append(
+    ]
+
+
+    return {
+
+        "recommendations": recommendations,
+
+        "priority": [
+
+            "Увеличение среднего чека",
+
+            "Рост загрузки номеров",
+
+            "Оптимизация тарифов"
+
+        ]
+
+    }    recommendations.append(
         "Рекомендуется повышать цены в дни высокого спроса"
     )
 

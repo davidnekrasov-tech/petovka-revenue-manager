@@ -27,7 +27,7 @@ def generate_recommendations():
 
             "Оптимизация тарифов"
 
-        ]
+    }
 
 
     return {

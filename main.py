@@ -375,3 +375,78 @@ def travelline_booking_details():
         "procuration_keys": list(first_booking.get("procuration", {}).keys())
             if isinstance(first_booking.get("procuration"), dict) else []
     }
+@app.get("/api/travelline/booking-fields")
+def travelline_booking_fields():
+    import json
+    import os
+    from urllib.parse import urlencode
+    from urllib.request import Request, urlopen
+
+    client_id = os.getenv("TRAVELLINE_CLIENT_ID")
+    client_secret = os.getenv("TRAVELLINE_CLIENT_SECRET")
+
+    data = urlencode({
+        "grant_type": "client_credentials",
+        "client_id": client_id,
+        "client_secret": client_secret,
+    }).encode("utf-8")
+
+    token_request = Request(
+        "https://partner.tlintegration.com/auth/token",
+        data=data,
+        headers={
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        method="POST",
+    )
+
+    with urlopen(token_request, timeout=20) as response:
+        token_data = json.loads(
+            response.read().decode("utf-8")
+        )
+
+    access_token = token_data["access_token"]
+
+    request = Request(
+        "https://partner.tlintegration.com/api/read-reservation/v1/properties/4950/bookings?count=1",
+        headers={
+            "Authorization": f"Bearer {access_token}"
+        },
+        method="GET",
+    )
+
+    with urlopen(request, timeout=20) as response:
+        bookings = json.loads(
+            response.read().decode("utf-8")
+        )
+
+    summaries = bookings.get("bookingSummaries", [])
+
+    if not summaries:
+        return {
+            "booking_found": False
+        }
+
+    booking = summaries[0]
+    fields = {}
+
+    for key, value in booking.items():
+        if isinstance(value, dict):
+            fields[key] = {
+                "type": "dict",
+                "keys": list(value.keys())
+            }
+        elif isinstance(value, list):
+            fields[key] = {
+                "type": "list",
+                "length": len(value)
+            }
+        else:
+            fields[key] = {
+                "type": type(value).__name__
+            }
+
+    return {
+        "booking_found": True,
+        "fields": fields
+    }

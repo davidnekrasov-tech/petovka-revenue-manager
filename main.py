@@ -115,3 +115,49 @@ def recommendations():
 def assistant():
     return generate_ai_report()
 import os
+@app.get("/api/travelline/properties")
+def travelline_properties():
+    import json
+    import os
+    from urllib.parse import urlencode
+    from urllib.request import Request, urlopen
+
+    client_id = os.getenv("TRAVELLINE_CLIENT_ID")
+    client_secret = os.getenv("TRAVELLINE_CLIENT_SECRET")
+
+    data = urlencode({
+        "grant_type": "client_credentials",
+        "client_id": client_id,
+        "client_secret": client_secret,
+    }).encode("utf-8")
+
+    token_request = Request(
+        "https://partner.tlintegration.com/auth/token",
+        data=data,
+        headers={
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        method="POST",
+    )
+
+    with urlopen(token_request, timeout=20) as response:
+        token_data = json.loads(
+            response.read().decode("utf-8")
+        )
+
+    access_token = token_data["access_token"]
+
+    request = Request(
+        "https://partner.tlintegration.com/api/content/v1/properties",
+        headers={
+            "Authorization": f"Bearer {access_token}"
+        },
+        method="GET",
+    )
+
+    with urlopen(request, timeout=20) as response:
+        properties = json.loads(
+            response.read().decode("utf-8")
+        )
+
+    return properties

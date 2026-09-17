@@ -501,9 +501,9 @@ def travelline_summary():
         "booking_count": len(summaries),
         "bookings": summaries
     }
-@app.get("/api/travelline/booking-summary")
-def travelline_booking_summary():
+@app.get("/api/travelline/booking-structure")
+def travelline_booking_structure():
     return {
         "status": "ok",
-        "message": "TravelLine booking summary endpoint ready"
+        "message": "TravelLine booking structure endpoint ready"
     }

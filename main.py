@@ -555,3 +555,9 @@ def travelline_booking_structure():
         "booking_count": len(summaries),
         "first_booking_keys": list(first_booking.keys())
     }
+@app.get("/api/travelline/booking-fields")
+def travelline_booking_fields():
+    return {
+        "status": "ok",
+        "message": "booking fields endpoint ready"
+    }

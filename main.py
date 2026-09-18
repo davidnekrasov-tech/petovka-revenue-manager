@@ -578,8 +578,10 @@ def travelline_recent_bookings():
 def travelline_recent_booking_details():
     import json
     import os
+    import time
     from urllib.parse import urlencode, quote
     from urllib.request import Request, urlopen
+    from urllib.error import HTTPError
 
     client_id = os.getenv("TRAVELLINE_CLIENT_ID")
     client_secret = os.getenv("TRAVELLINE_CLIENT_SECRET")
@@ -624,6 +626,7 @@ def travelline_recent_booking_details():
     results = []
 
     for summary in summaries:
+
         if summary.get("status") != "Active":
             continue
 
@@ -631,6 +634,9 @@ def travelline_recent_booking_details():
 
         if not number:
             continue
+
+        # защита от ограничения TravelLine 429
+        time.sleep(1)
 
         detail_request = Request(
             "https://partner.tlintegration.com/api/read-reservation/v1/properties/4950/bookings/"
@@ -659,12 +665,20 @@ def travelline_recent_booking_details():
                 "source": booking.get("source"),
             })
 
+        except HTTPError as e:
+            results.append({
+                "number": number,
+                "error": "HTTPError",
+                "message": str(e)
+            })
+
         except Exception as e:
             results.append({
                 "number": number,
                 "error": type(e).__name__,
                 "message": str(e)
             })
+
 
     return {
         "status": "ok",

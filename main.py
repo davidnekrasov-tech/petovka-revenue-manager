@@ -521,3 +521,56 @@ def travelline_latest_booking():
         "booking_found": True,
         "latest_booking": latest
     }
+@app.get("/api/travelline/recent-bookings")
+def travelline_recent_bookings():
+    import json
+    import os
+    from urllib.parse import urlencode
+    from urllib.request import Request, urlopen
+
+    client_id = os.getenv("TRAVELLINE_CLIENT_ID")
+    client_secret = os.getenv("TRAVELLINE_CLIENT_SECRET")
+
+    data = urlencode({
+        "grant_type": "client_credentials",
+        "client_id": client_id,
+        "client_secret": client_secret,
+    }).encode("utf-8")
+
+    token_request = Request(
+        "https://partner.tlintegration.com/auth/token",
+        data=data,
+        headers={
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        method="POST",
+    )
+
+    with urlopen(token_request, timeout=20) as response:
+        token_data = json.loads(
+            response.read().decode("utf-8")
+        )
+
+    access_token = token_data["access_token"]
+
+    request = Request(
+        "https://partner.tlintegration.com/api/read-reservation/v1/properties/4950/bookings?count=100&lastModification=2026-09-16T00:00:00Z",
+        headers={
+            "Authorization": f"Bearer {access_token}"
+        },
+        method="GET",
+    )
+
+    with urlopen(request, timeout=20) as response:
+        bookings = json.loads(
+            response.read().decode("utf-8")
+        )
+
+    summaries = bookings.get("bookingSummaries", [])
+
+    return {
+        "status": "ok",
+        "booking_count": len(summaries),
+        "has_more_data": bookings.get("hasMoreData"),
+        "bookings": summaries
+    }

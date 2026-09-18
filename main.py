@@ -574,3 +574,100 @@ def travelline_recent_bookings():
         "has_more_data": bookings.get("hasMoreData"),
         "bookings": summaries
     }
+@app.get("/api/travelline/recent-booking-details")
+def travelline_recent_booking_details():
+    import json
+    import os
+    from urllib.parse import urlencode, quote
+    from urllib.request import Request, urlopen
+
+    client_id = os.getenv("TRAVELLINE_CLIENT_ID")
+    client_secret = os.getenv("TRAVELLINE_CLIENT_SECRET")
+
+    data = urlencode({
+        "grant_type": "client_credentials",
+        "client_id": client_id,
+        "client_secret": client_secret,
+    }).encode("utf-8")
+
+    token_request = Request(
+        "https://partner.tlintegration.com/auth/token",
+        data=data,
+        headers={
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        method="POST",
+    )
+
+    with urlopen(token_request, timeout=20) as response:
+        token_data = json.loads(
+            response.read().decode("utf-8")
+        )
+
+    access_token = token_data["access_token"]
+
+    request = Request(
+        "https://partner.tlintegration.com/api/read-reservation/v1/properties/4950/bookings?count=100&lastModification=2026-09-16T00:00:00Z",
+        headers={
+            "Authorization": f"Bearer {access_token}"
+        },
+        method="GET",
+    )
+
+    with urlopen(request, timeout=20) as response:
+        bookings = json.loads(
+            response.read().decode("utf-8")
+        )
+
+    summaries = bookings.get("bookingSummaries", [])
+
+    results = []
+
+    for summary in summaries:
+        if summary.get("status") != "Active":
+            continue
+
+        number = summary.get("number")
+
+        if not number:
+            continue
+
+        detail_request = Request(
+            "https://partner.tlintegration.com/api/read-reservation/v1/properties/4950/bookings/"
+            + quote(number),
+            headers={
+                "Authorization": f"Bearer {access_token}"
+            },
+            method="GET",
+        )
+
+        try:
+            with urlopen(detail_request, timeout=20) as response:
+                details = json.loads(
+                    response.read().decode("utf-8")
+                )
+
+            booking = details.get("booking", {})
+            room_stays = booking.get("roomStays", [])
+
+            results.append({
+                "number": booking.get("number"),
+                "status": booking.get("status"),
+                "currency": booking.get("currencyCode"),
+                "room_stays": room_stays,
+                "total": booking.get("total"),
+                "source": booking.get("source"),
+            })
+
+        except Exception as e:
+            results.append({
+                "number": number,
+                "error": type(e).__name__,
+                "message": str(e)
+            })
+
+    return {
+        "status": "ok",
+        "active_booking_count": len(results),
+        "bookings": results
+    }

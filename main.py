@@ -440,8 +440,18 @@ def travelline_booking_fields():
     first_room_stay = room_stays[0] if room_stays else {}
 
     return {
-        "status": "ok",
-        "booking_keys": list(booking.keys()),
-        "room_stays_count": len(room_stays),
-        "first_room_stay_keys": list(first_room_stay.keys())
-    }
+    "status": "ok",
+    "booking_number": booking.get("number"),
+    "booking_status": booking.get("status"),
+    "currency": booking.get("currencyCode"),
+
+    "stay_dates": first_room_stay.get("stayDates"),
+    "room_type": first_room_stay.get("roomType"),
+    "guest_count": first_room_stay.get("guestCount"),
+    "daily_rates": first_room_stay.get("dailyRates"),
+    "room_total": first_room_stay.get("total"),
+
+    "booking_total": booking.get("total"),
+    "source": booking.get("source"),
+    "services": booking.get("services"),
+}

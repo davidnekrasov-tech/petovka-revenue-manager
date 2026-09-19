@@ -586,6 +586,7 @@ def travelline_recent_booking_details():
     client_id = os.getenv("TRAVELLINE_CLIENT_ID")
     client_secret = os.getenv("TRAVELLINE_CLIENT_SECRET")
 
+    # Получаем access token
     data = urlencode({
         "grant_type": "client_credentials",
         "client_id": client_id,
@@ -608,6 +609,7 @@ def travelline_recent_booking_details():
 
     access_token = token_data["access_token"]
 
+    # Получаем список изменённых бронирований
     request = Request(
         "https://partner.tlintegration.com/api/read-reservation/v1/properties/4950/bookings?count=100&lastModification=2026-09-16T00:00:00Z",
         headers={
@@ -627,6 +629,7 @@ def travelline_recent_booking_details():
 
     for summary in summaries:
 
+        # Берём только активные брони
         if summary.get("status") != "Active":
             continue
 
@@ -635,8 +638,10 @@ def travelline_recent_booking_details():
         if not number:
             continue
 
-        # защита от ограничения TravelLine 429
-        time.sleep(1)
+        # Пауза 0.35 сек.
+        # Это значительно быстрее 1 секунды,
+        # но сохраняет безопасный темп запросов.
+        time.sleep(0.35)
 
         detail_request = Request(
             "https://partner.tlintegration.com/api/read-reservation/v1/properties/4950/bookings/"
@@ -666,19 +671,63 @@ def travelline_recent_booking_details():
             })
 
         except HTTPError as e:
-            results.append({
-                "number": number,
-                "error": "HTTPError",
-                "message": str(e)
-            })
+
+            # Если TravelLine всё-таки даст 429,
+            # пробуем эту бронь ещё раз после паузы.
+            if e.code == 429:
+
+                time.sleep(2)
+
+                try:
+                    with urlopen(
+                        detail_request,
+                        timeout=20
+                    ) as response:
+
+                        details = json.loads(
+                            response.read().decode("utf-8")
+                        )
+
+                    booking = details.get("booking", {})
+                    room_stays = booking.get(
+                        "roomStays",
+                        []
+                    )
+
+                    results.append({
+                        "number": booking.get("number"),
+                        "status": booking.get("status"),
+                        "currency": booking.get(
+                            "currencyCode"
+                        ),
+                        "room_stays": room_stays,
+                        "total": booking.get("total"),
+                        "source": booking.get("source"),
+                    })
+
+                except Exception as retry_error:
+
+                    results.append({
+                        "number": number,
+                        "error": "RetryError",
+                        "message": str(retry_error)
+                    })
+
+            else:
+
+                results.append({
+                    "number": number,
+                    "error": "HTTPError",
+                    "message": str(e)
+                })
 
         except Exception as e:
+
             results.append({
                 "number": number,
                 "error": type(e).__name__,
                 "message": str(e)
             })
-
 
     return {
         "status": "ok",

@@ -734,7 +734,7 @@ def travelline_recent_booking_details():
         "active_booking_count": len(results),
         "bookings": results
     }
-    @app.get("/api/travelline/occupancy")
+@app.get("/api/travelline/occupancy")
 def travelline_occupancy():
     import json
     import os

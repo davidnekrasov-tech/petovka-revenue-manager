@@ -554,7 +554,7 @@ def travelline_recent_bookings():
     access_token = token_data["access_token"]
 
     request = Request(
-        "https://partner.tlintegration.com/api/read-reservation/v1/properties/4950/bookings?count=100&lastModification=2026-09-16T00:00:00Z",
+        "https://partner.tlintegration.com/api/read-reservation/v1/properties/4950/bookings?count=100",
         headers={
             "Authorization": f"Bearer {access_token}"
         },

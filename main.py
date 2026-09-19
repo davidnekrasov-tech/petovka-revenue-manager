@@ -734,3 +734,157 @@ def travelline_recent_booking_details():
         "active_booking_count": len(results),
         "bookings": results
     }
+    @app.get("/api/travelline/occupancy")
+def travelline_occupancy():
+    import json
+    import os
+    import time
+    from datetime import datetime, timedelta
+    from urllib.parse import urlencode, quote
+    from urllib.request import Request, urlopen
+    from urllib.error import HTTPError
+
+    client_id = os.getenv("TRAVELLINE_CLIENT_ID")
+    client_secret = os.getenv("TRAVELLINE_CLIENT_SECRET")
+
+    # Получаем токен
+    data = urlencode({
+        "grant_type": "client_credentials",
+        "client_id": client_id,
+        "client_secret": client_secret,
+    }).encode("utf-8")
+
+    token_request = Request(
+        "https://partner.tlintegration.com/auth/token",
+        data=data,
+        headers={
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        method="POST",
+    )
+
+    with urlopen(token_request, timeout=20) as response:
+        token_data = json.loads(
+            response.read().decode("utf-8")
+        )
+
+    access_token = token_data["access_token"]
+
+    # Получаем список изменённых бронирований
+    request = Request(
+        "https://partner.tlintegration.com/api/read-reservation/v1/properties/4950/bookings?count=100&lastModification=2026-09-16T00:00:00Z",
+        headers={
+            "Authorization": f"Bearer {access_token}"
+        },
+        method="GET",
+    )
+
+    with urlopen(request, timeout=20) as response:
+        bookings = json.loads(
+            response.read().decode("utf-8")
+        )
+
+    summaries = bookings.get("bookingSummaries", [])
+
+    occupancy = {}
+
+    for summary in summaries:
+
+        if summary.get("status") != "Active":
+            continue
+
+        number = summary.get("number")
+
+        if not number:
+            continue
+
+        time.sleep(0.35)
+
+        detail_request = Request(
+            "https://partner.tlintegration.com/api/read-reservation/v1/properties/4950/bookings/"
+            + quote(number),
+            headers={
+                "Authorization": f"Bearer {access_token}"
+            },
+            method="GET"
+        )
+
+        try:
+            with urlopen(
+                detail_request,
+                timeout=20
+            ) as response:
+                details = json.loads(
+                    response.read().decode("utf-8")
+                )
+
+        except HTTPError as e:
+            continue
+
+        booking = details.get("booking", {})
+
+        for room_stay in booking.get("roomStays", []):
+
+            room_type = room_stay.get(
+                "roomType",
+                {}
+            ).get(
+                "name",
+                "Неизвестная категория"
+            )
+
+            stay_dates = room_stay.get(
+                "stayDates",
+                {}
+            )
+
+            arrival = stay_dates.get(
+                "arrivalDateTime"
+            )
+
+            departure = stay_dates.get(
+                "departureDateTime"
+            )
+
+            if not arrival or not departure:
+                continue
+
+            arrival_date = datetime.fromisoformat(
+                arrival
+            ).date()
+
+            departure_date = datetime.fromisoformat(
+                departure
+            ).date()
+
+            current_date = arrival_date
+
+            while current_date < departure_date:
+
+                date_key = current_date.isoformat()
+
+                if date_key not in occupancy:
+                    occupancy[date_key] = {
+                        "rooms": 0,
+                        "categories": {}
+                    }
+
+                occupancy[date_key]["rooms"] += 1
+
+                if room_type not in occupancy[
+                    date_key
+                ]["categories"]:
+                    occupancy[
+                        date_key
+                    ]["categories"][room_type] = 0
+
+                occupancy[
+                    date_key
+                ]["categories"][room_type] += 1
+
+                current_date += timedelta(days=1)
+
+    return {
+        "status": "ok",
+        "dates": occupancy
+    }

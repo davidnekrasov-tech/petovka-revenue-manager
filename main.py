@@ -566,17 +566,17 @@ def travelline_recent_bookings():
             response.read().decode("utf-8")
         )
 
-     summaries = bookings.get("bookingSummaries", [])
+summaries = bookings.get("bookingSummaries", [])
 
-    continue_token = bookings.get("continueToken")
+continue_token = bookings.get("continueToken")
 
-    return {
-        "status": "ok",
-        "booking_count": len(summaries),
-        "has_more_data": bookings.get("hasMoreData"),
-        "continue_token": continue_token,
-        "bookings": summaries
-    }
+return {
+    "status": "ok",
+    "booking_count": len(summaries),
+    "has_more_data": bookings.get("hasMoreData"),
+    "continue_token": continue_token,
+    "bookings": summaries
+}
 @app.get("/api/travelline/recent-booking-details")
 def travelline_recent_booking_details():
     import json

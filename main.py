@@ -522,7 +522,7 @@ def travelline_latest_booking():
         "latest_booking": latest
     }
 @app.get("/api/travelline/recent-bookings")
-def travelline_recent_bookings():
+def travelline_recent_bookings(continue_token: str = None):
     import json
     import os
     from urllib.parse import urlencode

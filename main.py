@@ -554,15 +554,12 @@ def travelline_recent_bookings(continue_token: str = None):
     access_token = token_data["access_token"]
 
     request = Request(
-        (
     f"https://partner.tlintegration.com/api/read-reservation/v1/properties/4950/bookings?count=100"
     + (
         f"&continueToken={continue_token}"
         if continue_token
         else "&lastModification=2023-09-22T00:00:00Z"
-    )
-)
-+ (f"&continueToken={continue_token}" if continue_token else ""),
+    ),
         headers={
             "Authorization": f"Bearer {access_token}"
         },

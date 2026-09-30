@@ -893,10 +893,12 @@ def travelline_occupancy():
 
                 current_date += timedelta(days=1)
 
-    return {
+        return {
         "status": "ok",
         "dates": occupancy
     }
+
+
 @app.get("/api/pricing")
 def pricing(
     target_date: str,
@@ -906,7 +908,9 @@ def pricing(
         target_date=target_date,
         occupied_rooms=occupied_rooms,
     )
-    @app.post("/api/pricing/future")
+
+
+@app.post("/api/pricing/future")
 def future_pricing(data: dict):
     return calculate_future_prices(
         data.get("dates", {})

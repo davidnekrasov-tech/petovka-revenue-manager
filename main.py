@@ -6,6 +6,7 @@ from forecast import calculate_forecast
 from recommendations import generate_recommendations
 from ai_assistant import generate_ai_report
 from hotel_profile import hotel
+from pricing import calculate_prices, calculate_future_prices
 
 app = FastAPI(
     title="Petrovka Revenue Manager",
@@ -896,3 +897,17 @@ def travelline_occupancy():
         "status": "ok",
         "dates": occupancy
     }
+@app.get("/api/pricing")
+def pricing(
+    target_date: str,
+    occupied_rooms: int,
+):
+    return calculate_prices(
+        target_date=target_date,
+        occupied_rooms=occupied_rooms,
+    )
+    @app.post("/api/pricing/future")
+def future_pricing(data: dict):
+    return calculate_future_prices(
+        data.get("dates", {})
+    )

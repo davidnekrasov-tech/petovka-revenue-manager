@@ -25,7 +25,13 @@ def _json_request(url, token=None, form=None):
 def aggregate_stays(bookings, start, end):
     """Count occupied room-nights, excluding departure day and duplicate bookings."""
     dates = {}
+    seen_bookings = set()
     for booking in bookings:
+        booking_id = booking.get("number") or booking.get("id")
+        if booking_id is not None:
+            if booking_id in seen_bookings:
+                continue
+            seen_bookings.add(booking_id)
         if booking.get("status") not in ("Active", None):
             continue
         for stay in booking.get("roomStays", []):
@@ -66,6 +72,7 @@ def occupancy_diagnostic(start_date, end_date, max_pages=3, max_details=60):
     cursor = None
     has_more = True
     errors = []
+    pages_scanned = 0
     for page in range(max_pages):
         params = {"count": 100}
         if cursor:
@@ -81,6 +88,7 @@ def occupancy_diagnostic(start_date, end_date, max_pages=3, max_details=60):
         except (HTTPError, URLError, TimeoutError, ValueError) as exc:
             errors.append("Listing page failed: " + type(exc).__name__)
             break
+        pages_scanned += 1
         summaries.extend(batch.get("bookingSummaries") or [])
         has_more = bool(batch.get("hasMoreData"))
         next_cursor = batch.get("continueToken")
@@ -118,6 +126,7 @@ def occupancy_diagnostic(start_date, end_date, max_pages=3, max_details=60):
         "date_to": end_date,
         "dates": aggregate_stays(details, start, end),
         "summaries_scanned": len(summaries),
+        "pages_scanned": pages_scanned,
         "active_unique_found": len(active),
         "details_loaded": len(details),
         "has_more_data": has_more,

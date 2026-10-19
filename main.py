@@ -6,7 +6,7 @@ from forecast import calculate_forecast
 from recommendations import generate_recommendations
 from ai_assistant import generate_ai_report
 from hotel_profile import hotel
-from pricing import calculate_prices, calculate_future_prices
+from pricing import calculate_prices_from_occupancy, ROOM_CATEGORIES
 
 app = FastAPI(
     title="Petrovka Revenue Manager",
@@ -765,18 +765,47 @@ def travelline_occupancy(
 
 
 @app.get("/api/pricing")
-def pricing(
-    target_date: str,
-    occupied_rooms: int,
-):
-    return calculate_prices(
-        target_date=target_date,
-        occupied_rooms=occupied_rooms,
+def pricing(target_date: str, occupied_rooms: int):
+    """Scenario calculator using manually supplied occupancy, not live TravelLine data."""
+    from fastapi import HTTPException
+    from datetime import date
+    try:
+        date.fromisoformat(target_date)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid target_date; use YYYY-MM-DD")
+    if occupied_rooms < 0 or occupied_rooms > 15:
+        raise HTTPException(status_code=422, detail="occupied_rooms must be between 0 and 15")
+    return calculate_prices_from_occupancy(
+        target_date, {"rooms": occupied_rooms, "categories": {}}
     )
 
 
 @app.post("/api/pricing/future")
 def future_pricing(data: dict):
-    return calculate_future_prices(
-        data.get("dates", {})
-    )
+    """Manual what-if scenarios only; never apply rates to TravelLine."""
+    from fastapi import HTTPException
+    from datetime import date
+    dates = data.get("dates")
+    if not isinstance(dates, dict) or len(dates) > 90:
+        raise HTTPException(status_code=422, detail="dates must be an object with at most 90 entries")
+    result = {}
+    for date_key, occupancy in dates.items():
+        try:
+            date.fromisoformat(date_key)
+            if not isinstance(occupancy, dict):
+                raise ValueError("occupancy must be an object")
+            occupied = int(occupancy["rooms"])
+            if not 0 <= occupied <= 15:
+                raise ValueError("occupied rooms outside 0..15")
+            cats = occupancy.get("categories", {})
+            if not isinstance(cats, dict):
+                raise ValueError("categories must be an object")
+            if sum(int(v) for v in cats.values()) > occupied:
+                raise ValueError("category totals exceed occupied rooms")
+            if any(int(v) < 0 or int(v) > ROOM_CATEGORIES[k]["capacity"]
+                   for k, v in cats.items()):
+                raise ValueError("invalid category occupancy")
+            result[date_key] = calculate_prices_from_occupancy(date_key, occupancy)
+        except (ValueError, KeyError, TypeError) as exc:
+            raise HTTPException(status_code=422, detail=f"Invalid occupancy for {date_key}: {exc}")
+    return {"status": "ok", "source": "manual_scenario", "dates": result}

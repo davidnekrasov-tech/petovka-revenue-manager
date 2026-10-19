@@ -893,9 +893,17 @@ def travelline_occupancy():
 
                 current_date += timedelta(days=1)
 
-        return {
-        "status": "ok",
-        "dates": occupancy
+    return {
+        "status": "partial",
+        "dates": occupancy,
+        "complete": False,
+        "warning": (
+            "This endpoint reads only the first 100 bookings modified since "
+            "2026-09-16. Missing dates do not mean zero occupancy. "
+            "Do not use these figures for pricing decisions."
+        ),
+        "booking_summaries_scanned": len(summaries),
+        "has_more_data": bookings.get("hasMoreData"),
     }
 
 

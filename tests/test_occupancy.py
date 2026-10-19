@@ -17,6 +17,15 @@ class OccupancyTests(unittest.TestCase):
         self.assertEqual(set(result), {"2026-10-20", "2026-10-21"})
         self.assertEqual(result["2026-10-20"]["rooms"], 1)
 
+    def test_duplicate_booking_is_not_double_counted(self):
+        booking = {"number": "A-123", "status": "Active", "roomStays": [{
+            "stayDates": {"arrivalDateTime": "2026-10-20",
+                          "departureDateTime": "2026-10-21"},
+            "roomType": {"name": "Стандарт"},
+        }]}
+        result = aggregate_stays([booking, booking], date(2026, 10, 20), date(2026, 10, 21))
+        self.assertEqual(result["2026-10-20"]["rooms"], 1)
+
     def test_canceled_excluded(self):
         booking = {"status": "Canceled", "roomStays": [{
             "stayDates": {"arrivalDateTime": "2026-10-20", "departureDateTime": "2026-10-21"}

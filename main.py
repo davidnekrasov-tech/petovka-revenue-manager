@@ -1015,3 +1015,6 @@ from booking_storage import make_router
 app.include_router(make_router(travelline_recent_bookings))
 
 app.include_router(details_router)
+
+from occupancy import router as occupancy_router
+app.include_router(occupancy_router)

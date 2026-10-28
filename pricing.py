@@ -2,6 +2,9 @@
 # PRICING / REVENUE MANAGEMENT
 # ============================================================
 
+import json
+
+
 HOTEL_CAPACITY = 15
 
 ROOM_CATEGORIES = {
@@ -25,9 +28,7 @@ ROOM_CATEGORIES = {
 
 
 def get_demand_level(occupancy_percent: float):
-    """
-    Определяем уровень спроса по общей загрузке гостиницы.
-    """
+    """Определяет уровень спроса по общей загрузке гостиницы."""
 
     if occupancy_percent < 30:
         return {
@@ -85,10 +86,7 @@ def calculate_category_price(
     occupied: int,
     hotel_occupancy_percent: float,
 ):
-    """
-    Рассчитывает цену конкретной категории
-    с учетом фактической загрузки этой категории.
-    """
+    """Рассчитывает цену с учетом загрузки категории и гостиницы."""
 
     category = ROOM_CATEGORIES.get(category_name)
 
@@ -98,96 +96,62 @@ def calculate_category_price(
     capacity = category["capacity"]
     base_price = category["base_price"]
 
-    available = max(capacity - occupied, 0)
+    occupied = max(0, min(int(occupied), capacity))
+    available = capacity - occupied
 
-    if capacity > 0:
-        category_occupancy = (occupied / capacity) * 100
-    else:
-        category_occupancy = 0
-
-    # --------------------------------------------------------
-    # Если категория полностью занята
-    # --------------------------------------------------------
+    category_occupancy = (
+        occupied / capacity * 100
+        if capacity > 0
+        else 0
+    )
 
     if available == 0:
-
-        if category_occupancy >= 100:
-            multiplier = 1.25
-            recommendation = (
-                "Категория полностью продана. "
-                "Можно существенно повысить цену."
-            )
-
-    # --------------------------------------------------------
-    # Категория почти заполнена
-    # --------------------------------------------------------
+        multiplier = 1.25
+        recommendation = (
+            "Категория полностью продана. "
+            "Можно существенно повысить цену."
+        )
 
     elif category_occupancy >= 80:
-
         multiplier = 1.15
         recommendation = (
             "Категория почти заполнена. "
             "Рекомендуется повысить цену."
         )
 
-    # --------------------------------------------------------
-    # Хорошая загрузка
-    # --------------------------------------------------------
-
     elif category_occupancy >= 60:
-
         multiplier = 1.05
         recommendation = (
             "Хорошая загрузка категории. "
             "Можно немного повысить цену."
         )
 
-    # --------------------------------------------------------
-    # Средняя загрузка
-    # --------------------------------------------------------
-
     elif category_occupancy >= 30:
-
         multiplier = 1.00
         recommendation = (
             "Средняя загрузка категории. "
             "Оставляем базовую цену."
         )
 
-    # --------------------------------------------------------
-    # Низкая загрузка
-    # --------------------------------------------------------
-
     else:
-
         multiplier = 0.90
         recommendation = (
             "Низкая загрузка категории. "
             "Можно снизить цену для увеличения продаж."
         )
 
-    # --------------------------------------------------------
-    # Дополнительная корректировка по загрузке гостиницы
-    # --------------------------------------------------------
-
     if hotel_occupancy_percent >= 90:
-
         multiplier = max(multiplier, 1.20)
 
     elif hotel_occupancy_percent >= 80:
-
         multiplier = max(multiplier, 1.15)
-
-    # --------------------------------------------------------
-    # Расчет цены
-    # --------------------------------------------------------
 
     recommended_price = round(
         base_price * multiplier / 100
     ) * 100
 
     price_change_percent = round(
-        ((recommended_price - base_price) / base_price) * 100
+        (recommended_price - base_price) / base_price * 100
     )
 
     return {
@@ -195,8 +159,7 @@ def calculate_category_price(
         "occupied": occupied,
         "available": available,
         "category_occupancy_percent": round(
-            category_occupancy,
-            1
+            category_occupancy, 1
         ),
         "base_price": base_price,
         "recommended_price": recommended_price,
@@ -210,17 +173,14 @@ def calculate_prices_from_occupancy(
     occupancy_data: dict,
 ):
     """
-    Основной расчет динамической цены.
+    Рассчитывает цены по загрузке.
 
-    occupancy_data должен иметь структуру:
-
+    Формат occupancy_data:
     {
         "rooms": 10,
         "categories": {
             "Одноместный стандарт": 1,
-            "Стандартный двухместный номер...": 2,
-            "Улучшенный номер...": 6,
-            "Комфорт...": 1
+            "Улучшенный номер с большой двуспальной кроватью": 6
         }
     }
     """
@@ -230,63 +190,42 @@ def calculate_prices_from_occupancy(
     )
 
     categories_occupancy = occupancy_data.get(
-        "categories",
-        {}
+        "categories", {}
     )
-
-    # Защита от некорректных значений
 
     occupied_rooms = max(
         0,
-        min(
-            occupied_rooms,
-            HOTEL_CAPACITY
-        )
+        min(occupied_rooms, HOTEL_CAPACITY),
     )
 
-    available_rooms = (
-        HOTEL_CAPACITY - occupied_rooms
-    )
+    available_rooms = HOTEL_CAPACITY - occupied_rooms
 
     occupancy_percent = round(
-        (occupied_rooms / HOTEL_CAPACITY) * 100,
-        1
+        occupied_rooms / HOTEL_CAPACITY * 100,
+        1,
     )
 
-    demand = get_demand_level(
-        occupancy_percent
-    )
+    demand = get_demand_level(occupancy_percent)
 
     result_categories = {}
 
     for category_name, category_data in ROOM_CATEGORIES.items():
-
         occupied = int(
-            categories_occupancy.get(
-                category_name,
-                0
-            )
+            categories_occupancy.get(category_name, 0)
         )
-
-        # Не позволяем занятости превышать вместимость категории
 
         occupied = max(
             0,
-            min(
-                occupied,
-                category_data["capacity"]
+            min(occupied, category_data["capacity"]),
+        )
+
+        result_categories[category_name] = (
+            calculate_category_price(
+                category_name=category_name,
+                occupied=occupied,
+                hotel_occupancy_percent=occupancy_percent,
             )
         )
-
-        result = calculate_category_price(
-            category_name=category_name,
-            occupied=occupied,
-            hotel_occupancy_percent=occupancy_percent,
-        )
-
-        result_categories[
-            category_name
-        ] = result
 
     return {
         "status": "ok",
@@ -303,73 +242,62 @@ def calculate_prices_from_occupancy(
 
 
 # ============================================================
-# GET PRICING FOR ONE DATE
+# Расчет на одну дату — вызывается из main.py
 # ============================================================
 
-@app.get("/api/pricing")
-def pricing(
+def calculate_prices(
     target_date: str,
     occupied_rooms: int,
     category_occupancy: str = "",
 ):
     """
-    Расчет цены на одну дату.
+    Рассчитывает цены на одну дату.
 
-    Пример:
-
-    target_date=2026-10-06
-    occupied_rooms=10
-
-    category_occupancy можно передать JSON-строкой.
+    category_occupancy — необязательная JSON-строка
+    с количеством занятых номеров по категориям.
     """
 
-    import json
+    categories = (
+        json.loads(category_occupancy)
+        if category_occupancy
+        else {}
+    )
 
-    categories = {}
-
-    if category_occupancy:
-
-        try:
-            categories = json.loads(
-                category_occupancy
-            )
-
-        except Exception:
-
-            categories = {}
-
-    occupancy_data = {
-        "rooms": occupied_rooms,
-        "categories": categories,
-    }
+    if not isinstance(categories, dict):
+        raise ValueError(
+            "category_occupancy must be a JSON object"
+        )
 
     return calculate_prices_from_occupancy(
         target_date=target_date,
-        occupancy_data=occupancy_data,
+        occupancy_data={
+            "rooms": occupied_rooms,
+            "categories": categories,
+        },
     )
 
 
 # ============================================================
-# FUTURE PRICING
+# Расчет на несколько дат — вызывается из main.py
 # ============================================================
 
-@app.post("/api/pricing/future")
-def future_pricing(data: dict):
-
-    dates = data.get(
-        "dates",
-        {}
-    )
+def calculate_future_prices(dates: dict):
+    """
+    Формат dates:
+    {
+        "2026-10-28": {
+            "rooms": 10,
+            "categories": {}
+        }
+    }
+    """
 
     result = {}
 
     for date_key, occupancy_data in dates.items():
-
-        result[date_key] = (
-            calculate_prices_from_occupancy(
-                target_date=date_key,
-                occupancy_data=occupancy_data,
-            )
+        result[date_key] = calculate_prices_from_occupancy(
+            target_date=date_key,
+            occupancy_data=occupancy_data,
         )
 
     return {

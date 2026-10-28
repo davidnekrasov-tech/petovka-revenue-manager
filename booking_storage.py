@@ -81,7 +81,8 @@ def validate_page(page, previous_token):
     for booking in bookings:
         if not isinstance(booking, dict) or not isinstance(booking.get("number"), str) or not booking["number"]:
             raise HTTPException(502, "TravelLine booking number is missing")
-    return bookings, more, token if more else None
+    # Final-page tokens are also cursors for future changes (TravelLine contract).
+    return bookings, more, token
 
 
 def make_router(fetch_page: Callable):

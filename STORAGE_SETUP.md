@@ -33,3 +33,15 @@ Successful details are committed per booking. PostgreSQL advisory session lockin
 This stage does not change existing occupancy/revenue calculations. Financial values remain in their source fields (`priceBeforeTax`, `priceAfterTax`, etc.); they are not presented as collected payments or realized revenue.
 
 Run `python -m unittest test_booking_storage test_booking_details -v` for authorization, field filtering, retry delays, token reuse, pagination and per-booking commit tests. These tests mock network/database boundaries. Live database/TravelLine verification remains required after deployment.
+
+## Occupancy and nightly room amounts
+
+GET `/api/storage/occupancy?date_from=2026-10-30&date_to=2026-11-02` uses the same SYNC_API_KEY. `date_to` is checkout date, excluded: this example returns the nights of October 30, October 31 and November 1. Maximum range is 366 nights.
+
+The endpoint reads PostgreSQL only and makes no TravelLine requests or writes. It uses a repeatable-read snapshot and only details whose source hash matches the latest imported summary. `coverage` reports missing/stale details, summary-import completeness, import timestamps and the imported data scope. These are imported snapshots, not live hotel state; a complete import does not prove all later booking changes have been received. The scope remains summaries modified since September 22, 2023.
+
+Only bookings marked Active in BOTH summary and details count. Cancelled bookings are excluded. Every roomStay counts as one room on each hotel-local date from arrival up to but excluding departure. Day-use stays count as zero room-nights. Capacity is 15: single 2, standard 2, improved 6, comfort 5, confirmed by the user's TravelLine room roster. Aliases recognize the short category labels and the full labels used in the pricing module. Unknown categories remain counted in the hotel total and appear separately; invalid dates/statuses and over-capacity are reported in quality_issues. Counts and percentages above capacity are shown without silently truncating occupied rooms. Physical room assignment, maintenance/out-of-order rooms and same-day use are not modeled by these snapshots.
+
+`room_amount_before_tax` sums only `dailyRates[].priceBeforeTax` in RUB for each room-night. It is NOT collected payments or net realized revenue; extra services, early/late charges and booking-level totals are not allocated across nights. Money is serialized as decimal strings. Missing/duplicate rates or non-RUB data yield null for the complete daily amount; `known_room_amount_before_tax` shows only the observed subtotal, and `missing_price_room_nights` flags the gap. Match dates and room counts against the TravelLine chessboard before using the figures for decisions.
+
+After deploy: open `/docs`, authorize with the existing key, find **Occupancy from database**, select GET `/api/storage/occupancy`, enter the two dates and execute. No new variables or migration are needed. Tests: `python -m unittest test_occupancy test_booking_storage test_booking_details -v`.

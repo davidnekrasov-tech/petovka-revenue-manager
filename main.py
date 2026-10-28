@@ -1018,3 +1018,6 @@ app.include_router(details_router)
 
 from occupancy import router as occupancy_router
 app.include_router(occupancy_router)
+
+from reconciliation import router as reconciliation_router
+app.include_router(reconciliation_router)

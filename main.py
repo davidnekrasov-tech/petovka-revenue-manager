@@ -915,3 +915,75 @@ def future_pricing(data: dict):
     return calculate_future_prices(
         data.get("dates", {})
     )
+    # ============================================================
+# Проверка подключения PostgreSQL
+# ============================================================
+
+@app.get("/health/db")
+def database_health():
+    import os
+
+    import psycopg
+    from fastapi.responses import JSONResponse
+
+    required_variables = (
+        "PGHOST",
+        "PGPORT",
+        "PGDATABASE",
+        "PGUSER",
+        "PGPASSWORD",
+    )
+
+    missing = [
+        name
+        for name in required_variables
+        if not os.environ.get(name)
+    ]
+
+    if missing:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "error",
+                "database": "not_configured",
+                "missing_variables": missing,
+            },
+        )
+
+    try:
+        with psycopg.connect(
+            host=os.environ["PGHOST"],
+            port=os.environ["PGPORT"],
+            dbname=os.environ["PGDATABASE"],
+            user=os.environ["PGUSER"],
+            password=os.environ["PGPASSWORD"],
+            connect_timeout=5,
+            options="-c statement_timeout=5000",
+        ) as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                result = cursor.fetchone()
+
+        if result != (1,):
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "status": "error",
+                    "database": "unexpected_response",
+                },
+            )
+
+        return {
+            "status": "ok",
+            "database": "connected",
+        }
+
+    except (psycopg.Error, ValueError) as error:
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "error",
+                "database": "connection_failed",
+                "error_type": type(error).__name__,
+            },
+        )

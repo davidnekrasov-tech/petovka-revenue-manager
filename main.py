@@ -979,11 +979,14 @@ def database_health():
         }
 
     except (psycopg.Error, ValueError) as error:
-        return JSONResponse(
-            status_code=503,
-            content={
-                "status": "error",
-                "database": "connection_failed",
-                "error_type": type(error).__name__,
-            },
+        import logging
+
+        safe_message = str(error)
+        password = os.environ.get("PGPASSWORD")
+        if password:
+            safe_message = safe_message.replace(password, "***")
+
+        logging.getLogger(__name__).error(
+            "PostgreSQL connection failed: %s",
+            safe_message,
         )

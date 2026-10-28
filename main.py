@@ -557,7 +557,7 @@ def travelline_recent_bookings(continue_token: str = None):
     request = Request(
     f"https://partner.tlintegration.com/api/read-reservation/v1/properties/4950/bookings?count=100"
     + (
-        f"&continueToken={continue_token}"
+        "&" + urlencode({"continueToken": continue_token})
         if continue_token
         else "&lastModification=2023-09-22T00:00:00Z"
     ),
@@ -990,3 +990,14 @@ def database_health():
             "PostgreSQL connection failed: %s",
             safe_message,
         )
+
+
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=503,
+            content={"status": "error", "database": "connection_failed", "error_type": type(error).__name__},
+        )
+
+
+from booking_storage import make_router
+app.include_router(make_router(travelline_recent_bookings))

@@ -7,10 +7,22 @@ from recommendations import generate_recommendations
 from ai_assistant import generate_ai_report
 from hotel_profile import hotel
 from pricing import calculate_prices, calculate_future_prices
+from contextlib import asynccontextmanager
+from booking_details import router as details_router, launch_worker, shutdown_worker
+
+
+@asynccontextmanager
+async def lifespan(application):
+    launch_worker()
+    try:
+        yield
+    finally:
+        shutdown_worker()
 
 app = FastAPI(
     title="Petrovka Revenue Manager",
-    version="0.1.0"
+    version="0.1.0",
+    lifespan=lifespan,
 )
 
 
@@ -1001,3 +1013,5 @@ def database_health():
 
 from booking_storage import make_router
 app.include_router(make_router(travelline_recent_bookings))
+
+app.include_router(details_router)

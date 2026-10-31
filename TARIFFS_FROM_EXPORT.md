@@ -25,7 +25,7 @@ Protected endpoints using the existing SYNC_API_KEY:
 For each adult placement, return the exact exported price and a preliminary price
 suggestion using the existing occupancy multiplier, followed by difference and
 percentage change. Multipliers of one retain the original cents exactly; other
-adjustments round to hundreds with decimal half-up rounding. The multiplier is
+adjustments round the shared parent room price to hundreds with decimal half-up rounding. Derived prices then round to kopecks. The multiplier is
 now exposed by calculate_category_price without altering its existing calculation.
 Price suggestions remain withheld for sold-out categories, past nights, stale or
 incomplete booking data, occupancy issues, dates outside the export, non-positive
@@ -34,12 +34,23 @@ restrictions are returned without calculating new child prices.
 
 The tariffs share the same room inventory: never sum their availability as if
 these were separate rooms. Blank Close/Open does not establish bookability.
-MinLOS and other conditions still need review. Breakfast, commissions and
-inherited tariff formulas are not separately modeled. Applying the occupancy
-factor to a tariff's full exported adult price is a preliminary comparison only;
-it is not an instruction to alter breakfast supplements or inherited tariff links.
-No meal inclusion, channel eligibility or cancellation policy is inferred beyond
-the exported tariff names. Read the full tariff settings before acting.
+MinLOS and other conditions still need review.
+
+Inheritance settings were read in the hotel cabinet on 31 October 2026. All ten
+plans use «Базовый без завтрака». OTA markup is 18%, ЯП markup 25%, best-day markup
+5%; breakfast adds 900 RUB per adult place BEFORE markup. Returning-guest
+reductions are 10% and 15%; long-stay reduction 7%. The weekend offer is named
+20% but actually configured at 15%; the configured rule is used.
+
+For each date/category/adult placement, reconstruct the shared parent from the
+exported OTA price divided by 1.18. This is not a live parent calendar. Verify each
+exported child price matches its configured formula within 0.02 RUB; otherwise
+withhold it as export_does_not_match_inheritance_rule (possible override or
+placement-specific rule). Missing parent basis also withholds suggestions.
+Only adjust the room base; leave the 900 RUB meal supplement intact and then
+apply the child multiplier. Factor one preserves exact exported cents. Rules are
+static observations and require refresh when cabinet settings change. No child
+extra-bed prices, cancellation policies or channel eligibility are inferred.
 
 Booking occupancy continues to refresh every five minutes. The tariff snapshot
 is static and does not refresh with bookings; responses explicitly say

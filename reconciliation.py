@@ -85,7 +85,8 @@ def update_summaries():
         return {"status": "ok", "received": len(bookings), "changed": changed,
                 "has_more_data": more, "next_step": "Repeat updates" if more else "Start details import, then recalculate occupancy"}
     except HTTPError as error:
-        raise HTTPException(502, "TravelLine returned HTTP " + str(error.code)) from None
+        raise HTTPException(502, "TravelLine returned HTTP " + str(error.code),
+                            headers={"Retry-After": error.headers.get("Retry-After", "120")} if error.code == 429 else None) from None
     except (URLError, TimeoutError):
         raise HTTPException(502, "TravelLine is temporarily unavailable") from None
     except (KeyError, ValueError, TypeError):
@@ -152,3 +153,4 @@ def audit(date_from: date, date_to: date):
                 "scope": "Stored snapshots; bookings absent from the import cannot appear here", **result}
     except psycopg.Error:
         raise HTTPException(503, "Database operation failed") from None
+

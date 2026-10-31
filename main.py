@@ -8,15 +8,18 @@ from ai_assistant import generate_ai_report
 from hotel_profile import hotel
 from pricing import calculate_prices, calculate_future_prices
 from contextlib import asynccontextmanager
+from auto_sync import router as auto_router, launch_worker as launch_auto_sync, shutdown_worker as shutdown_auto_sync
 from booking_details import router as details_router, launch_worker, shutdown_worker
 
 
 @asynccontextmanager
 async def lifespan(application):
     launch_worker()
+    launch_auto_sync()
     try:
         yield
     finally:
+        shutdown_auto_sync()
         shutdown_worker()
 
 app = FastAPI(
@@ -1021,3 +1024,6 @@ app.include_router(occupancy_router)
 
 from reconciliation import router as reconciliation_router
 app.include_router(reconciliation_router)
+
+
+app.include_router(auto_router)

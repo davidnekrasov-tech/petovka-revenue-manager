@@ -1027,3 +1027,6 @@ app.include_router(reconciliation_router)
 
 
 app.include_router(auto_router)
+
+from database_pricing import router as database_pricing_router
+app.include_router(database_pricing_router)

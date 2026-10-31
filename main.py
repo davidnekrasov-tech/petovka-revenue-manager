@@ -1033,3 +1033,6 @@ app.include_router(database_pricing_router)
 
 from tariff_pricing import router as tariff_pricing_router
 app.include_router(tariff_pricing_router)
+
+from booking_pace import router as booking_pace_router
+app.include_router(booking_pace_router)

@@ -25,7 +25,7 @@ Protected endpoints using the existing SYNC_API_KEY:
 For each adult placement, return the exact exported price and a preliminary price
 suggestion using the existing occupancy multiplier, followed by difference and
 percentage change. Multipliers of one retain the original cents exactly; other
-adjustments round the shared parent room price to hundreds with decimal half-up rounding. Derived prices then round to kopecks. The multiplier is
+adjustments round the shared parent room price to hundreds with decimal half-up rounding. Derived prices then round to kopecks, except the best-day breakfast tariff, whose verified cabinet setting rounds upward to whole RUB. The multiplier is
 now exposed by calculate_category_price without altering its existing calculation.
 Price suggestions remain withheld for sold-out categories, past nights, stale or
 incomplete booking data, occupancy issues, dates outside the export, non-positive
@@ -56,3 +56,9 @@ Booking occupancy continues to refresh every five minutes. The tariff snapshot
 is static and does not refresh with bookings; responses explicitly say
 `automatically_updated: false`. The original pricing endpoint remains available.
 Live verification of the two new protected endpoints follows deployment.
+
+Rounding verification (31 October 2026): «Лучшая цена дня с завтраком!» uses
+«Округление цены до 1 RUB, до большего значения». Apply decimal CEILING both
+when validating exported prices and producing adjusted recommendations. Do not
+relax the mismatch tolerance. The six mismatches in the supplied two-day response
+are resolved by this setting. Other tariff rounding remains at kopeck precision.

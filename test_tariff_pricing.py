@@ -14,6 +14,18 @@ def report(day='2026-11-02'):
 
 
 class TariffTests(unittest.TestCase):
+    def test_verified_rounding_accepts_november_first_breakfast(self):
+        result=compare_tariffs(report('2026-11-01'),'Лучшая цена дня с завтраком!')
+        placement=list(result['dates'][0]['tariffs'][0]['categories'].values())[3]['placements']['Цена 2 осн.']
+        self.assertEqual(placement['suggested_price'],'8453.00')
+        self.assertEqual(placement['withheld_reasons'],[])
+
+    def test_ruble_rounding_is_upward_not_nearest(self):
+        from tariff_pricing import round_tariff_price
+        from decimal import Decimal
+        self.assertEqual(round_tariff_price('Лучшая цена дня с завтраком!',Decimal('8452.01')),Decimal('8453'))
+        self.assertEqual(round_tariff_price('Лучшая цена дня без завтрака!',Decimal('8452.01')),Decimal('8452.01'))
+
     def test_all_ten_tariffs_and_categories_retained(self):
         self.assertEqual(len(SNAPSHOT['tariffs']),10)
         self.assertTrue(all(len(p['categories'])==4 for p in SNAPSHOT['tariffs']))

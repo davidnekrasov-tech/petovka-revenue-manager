@@ -1030,3 +1030,6 @@ app.include_router(auto_router)
 
 from database_pricing import router as database_pricing_router
 app.include_router(database_pricing_router)
+
+from tariff_pricing import router as tariff_pricing_router
+app.include_router(tariff_pricing_router)

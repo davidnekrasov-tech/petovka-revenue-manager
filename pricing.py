@@ -162,6 +162,7 @@ def calculate_category_price(
             category_occupancy, 1
         ),
         "base_price": base_price,
+        "multiplier": multiplier,
         "recommended_price": recommended_price,
         "price_change_percent": price_change_percent,
         "recommendation": recommendation,

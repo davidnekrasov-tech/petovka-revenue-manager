@@ -1,7 +1,7 @@
 """Compare each exported tariff separately with occupancy-based suggestions."""
 import json
 from datetime import date
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, ROUND_HALF_UP, ROUND_CEILING
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -29,6 +29,13 @@ RULES = {
 ANCHOR = 'Тариф с надбавкой для ОТА'
 
 
+def round_tariff_price(plan_name, value):
+    # Verified in this tariff's main settings, not inferred from export values.
+    if plan_name == 'Лучшая цена дня с завтраком!':
+        return value.quantize(Decimal('1'), rounding=ROUND_CEILING)
+    return value.quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
+
+
 def linked_price(plan_name, category, night, label, price, factor):
     """Recover one shared room base; never discount the meal component.
 
@@ -46,11 +53,11 @@ def linked_price(plan_name, category, night, label, price, factor):
     base = (Decimal(raw) / Decimal('1.18')).quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
     multiplier, meal = map(Decimal, rule)
     beds = 1 if label == 'Цена 1 осн.' else 2
-    expected = ((base + beds * meal) * multiplier).quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
+    expected = round_tariff_price(plan_name, (base + beds * meal) * multiplier)
     if abs(expected - price) > Decimal('.02'):
         return None, base, 'export_does_not_match_inheritance_rule'
     adjusted = base if factor == 1 else (base * Decimal(str(factor)) / 100).quantize(Decimal('1'), rounding=ROUND_HALF_UP) * 100
-    suggested = price if factor == 1 else ((adjusted + beds * meal) * multiplier).quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
+    suggested = price if factor == 1 else round_tariff_price(plan_name, (adjusted + beds * meal) * multiplier)
     return suggested, base, None
 
 
@@ -118,7 +125,8 @@ def compare_tariffs(pricing, tariff_name=None):
             rule=RULES.get(plan['name'])
             results.append({'name':plan['name'],'currency':plan['currency'],
                             'inheritance':{'parent':'Базовый без завтрака','multiplier':rule[0],
-                                           'meal_per_place':rule[1],'verified_on':'2026-10-31'} if rule else None,
+                                           'meal_per_place':rule[1],'verified_on':'2026-10-31',
+                                           'rounding':'ceil_ruble' if plan['name']=='Лучшая цена дня с завтраком!' else 'half_up_kopeck'} if rule else None,
                             'categories':categories})
         days.append({'date':day['date'],'occupied':day['occupied'],'capacity':day['capacity'],
                      'occupancy_percent':day['occupancy_percent'],'tariffs':results})
@@ -129,7 +137,7 @@ def compare_tariffs(pricing, tariff_name=None):
                 'Tariff prices and restrictions are a static export, not live TravelLine prices.',
                 'Inheritance rules were read from TravelLine on 2026-10-31; they are not refreshed automatically.',
                 'The shared parent price is reconstructed from the exported OTA tariff, not read live. Rule mismatches withhold suggestions.',
-                'Only the room base is adjusted and rounded to hundreds; meal supplements and tariff multipliers are then applied, rounded to kopecks.',
+                'Only the room base is adjusted and rounded to hundreds; meal supplements and tariff multipliers are then applied. Best-day breakfast rounds upward to whole RUB as configured; other outputs use kopecks.',
                 'The weekend offer name says 20%, but its configured inheritance discount is 15%.',
                 'Child prices are retained unchanged; no child-price suggestions are calculated.',
                 'A blank Close/Open cell does not certify that a rate is bookable; MinLOS and other booking conditions need review.',

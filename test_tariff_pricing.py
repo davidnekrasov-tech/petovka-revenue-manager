@@ -42,8 +42,28 @@ class TariffTests(unittest.TestCase):
         data['dates'][0]['occupancy_percent']=0
         result=compare_tariffs(data,'Лучшая цена дня без завтрака!')
         comfort=list(result['dates'][0]['tariffs'][0]['categories'].values())[3]
-        self.assertEqual(comfort['placements']['Цена 2 осн.']['suggested_price'],'5800.00')
-        self.assertEqual(comfort['placements']['Цена 1 осн.']['suggested_price'],'5600.00')
+        self.assertEqual(comfort['placements']['Цена 2 осн.']['suggested_price'],'5775.00')
+        self.assertEqual(comfort['placements']['Цена 1 осн.']['suggested_price'],'5565.00')
+
+    def test_meal_is_not_discounted_and_channel_ratios_survive(self):
+        data=report()
+        for c in data['dates'][0]['categories'].values():
+            c.update(occupied=0,available=c['capacity'],withheld_reasons=[])
+        data['dates'][0]['occupancy_percent']=0
+        plans={p['name']:p for p in compare_tariffs(data)['dates'][0]['tariffs']}
+        def price(name):
+            return list(plans[name]['categories'].values())[3]['placements']['Цена 2 осн.']['suggested_price']
+        self.assertEqual(price('Лучшая цена дня с завтраком!'),'7665.00')
+        self.assertEqual(price('Тариф с завтраком для OTA'),'8614.00')
+        self.assertEqual(price('Тариф без завтрака для ЯП'),'6875.00')
+
+    def test_override_mismatch_withholds_instead_of_guessing(self):
+        from tariff_pricing import linked_price
+        from decimal import Decimal
+        value,base,error=linked_price('Лучшая цена дня без завтрака!',list(SNAPSHOT['tariffs'][0]['categories'])[3],
+                                      '2026-11-02','Цена 2 осн.',Decimal('9999'),.9)
+        self.assertIsNone(value)
+        self.assertEqual(error,'export_does_not_match_inheritance_rule')
 
     def test_missing_price_is_not_filled_from_adjacent_day(self):
         result=compare_tariffs(report('2027-02-07'))

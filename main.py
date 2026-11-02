@@ -1039,3 +1039,6 @@ app.include_router(booking_pace_router)
 
 from weekly_report import router as weekly_report_router
 app.include_router(weekly_report_router)
+
+from dashboard import router as dashboard_router
+app.include_router(dashboard_router)

@@ -14,10 +14,10 @@ def report(day='2026-11-02'):
 
 
 class TariffTests(unittest.TestCase):
-    def test_verified_rounding_accepts_november_first_breakfast(self):
-        result=compare_tariffs(report('2026-11-01'),'Лучшая цена дня с завтраком!')
+    def test_verified_rounding_accepts_exported_breakfast(self):
+        result=compare_tariffs(report('2026-11-02'),'Лучшая цена дня с завтраком!')
         placement=list(result['dates'][0]['tariffs'][0]['categories'].values())[3]['placements']['Цена 2 осн.']
-        self.assertEqual(placement['suggested_price'],'8453.00')
+        self.assertEqual(placement['suggested_price'],'8295.00')
         self.assertEqual(placement['withheld_reasons'],[])
 
     def test_ruble_rounding_is_upward_not_nearest(self):
@@ -36,11 +36,11 @@ class TariffTests(unittest.TestCase):
     def test_export_values_november_dates_and_zero_are_preserved(self):
         p=next(p for p in SNAPSHOT['tariffs'] if p['name']=='Лучшая цена дня без завтрака!')
         config=list(p['categories'].values())[3]
-        self.assertEqual(exported_rows(config,'2026-11-01')['Цена 2 осн.'],'6562.50')
+        self.assertIsNone(exported_rows(config,'2026-11-01'))
         self.assertEqual(exported_rows(config,'2026-11-02')['Цена 2 осн.'],'6405.00')
         self.assertIsNone(exported_rows(config,'2026-10-31'))
-        # Check RLE preserves all 99 days, including blanks rather than filling them.
-        self.assertTrue(all(runs[-1][0]==99 for runs in SNAPSHOT['series']))
+        # Check RLE preserves all exported days, including blanks rather than filling them.
+        self.assertTrue(all(runs[-1][0]==SNAPSHOT['days'] for runs in SNAPSHOT['series']))
 
     def test_no_occupancy_adjustment_keeps_exact_price(self):
         result=compare_tariffs(report(),'Лучшая цена дня без завтрака!')

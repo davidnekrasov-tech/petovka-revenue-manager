@@ -9,6 +9,7 @@ from booking_pace import calculate_pace
 from occupancy import calculate_occupancy
 from database_pricing import build_recommendations
 from tariff_pricing import compare_tariffs
+from price_levels import level_source, recommend_level
 
 router = APIRouter(prefix='/api/storage', tags=['Weekly report'], dependencies=[Depends(authorize)])
 
@@ -40,6 +41,8 @@ def build_report(records, date_from, date_to, coverage, checked_at, now):
                 'new_active_rooms_complete': pace_complete,
                 'reason': suggested['categories'][name]['reason'],
                 'withheld_reasons': suggested['categories'][name]['withheld_reasons'],
+                'price_levels': recommend_level(observed['date'], name,
+                    suggested['categories'][name], observed['occupancy_percent'], now),
                 'tariffs': [{'name': p['name'], 'currency': p['currency'],
                              'placements': p['categories'][name]['placements'],
                              'exported_rows': p['categories'][name]['exported_rows']}
@@ -56,6 +59,7 @@ def build_report(records, date_from, date_to, coverage, checked_at, now):
         'database_consistency': 'single_repeatable_read_snapshot',
         'currency': 'RUB', 'repair_blocks_included': False,
         'tariff_source': comparisons['source'], 'tariffs_automatically_updated': False,
+        'price_level_source': level_source(),
         'freshness': {'last_summary_check_at': checked_at, 'age_seconds': age,
                       'fresh': age is not None and 0 <= age <= 900},
         'coverage': coverage, 'quality_issues': snapshot['quality_issues'],
@@ -66,6 +70,8 @@ def build_report(records, date_from, date_to, coverage, checked_at, now):
                          'quality_issues': pace['quality_issues'],
                          'windows': [{k: v for k, v in w.items() if k != 'dates'} for w in pace['windows']]},
         'limitations': comparisons['limitations'] + [
+            'Price-level calendar is a manual dated snapshot. Level suggestions expire after its Moscow verification date and are withheld outside verified dates.',
+            'Level recommendations choose the closest grid price to the existing occupancy target, using one adult as the anchor. They do not assess competitors or demand forecasts.',
             'Pace windows are nested rolling 24/72/168 hours. Counts cover currently active bookings only, not net pickup.',
             'Booking pace is displayed as context and does not change the occupancy pricing formula.',
             'Exported tariffs have their own timestamp; fresh booking synchronization does not refresh tariff prices.',

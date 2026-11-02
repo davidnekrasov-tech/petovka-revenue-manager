@@ -1036,3 +1036,6 @@ app.include_router(tariff_pricing_router)
 
 from booking_pace import router as booking_pace_router
 app.include_router(booking_pace_router)
+
+from weekly_report import router as weekly_report_router
+app.include_router(weekly_report_router)

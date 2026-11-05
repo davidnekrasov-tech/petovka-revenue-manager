@@ -1042,3 +1042,6 @@ app.include_router(weekly_report_router)
 
 from dashboard import router as dashboard_router
 app.include_router(dashboard_router)
+
+from excel_prices import router as excel_prices_router
+app.include_router(excel_prices_router)

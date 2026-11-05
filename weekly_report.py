@@ -8,13 +8,19 @@ from booking_storage import PROPERTY_ID, authorize, connect
 from booking_pace import calculate_pace
 from occupancy import calculate_occupancy
 from database_pricing import build_recommendations
-from tariff_pricing import compare_tariffs
+from tariff_pricing import compare_tariffs, SNAPSHOT
+from excel_prices import read_snapshot, use_snapshot
 from price_levels import level_source, recommend_level
 
 router = APIRouter(prefix='/api/storage', tags=['Weekly report'], dependencies=[Depends(authorize)])
 
 
-def build_report(records, date_from, date_to, coverage, checked_at, now):
+def build_report(records, date_from, date_to, coverage, checked_at, now, tariff_snapshot=None):
+    with use_snapshot(SNAPSHOT if tariff_snapshot is None else tariff_snapshot):
+        return build_report_scoped(records, date_from, date_to, coverage, checked_at, now)
+
+
+def build_report_scoped(records, date_from, date_to, coverage, checked_at, now):
     snapshot = {'date_from': date_from, 'date_to_exclusive': date_to,
                 'coverage': coverage, **calculate_occupancy(records, date_from, date_to)}
     pricing = build_recommendations(snapshot, checked_at, now)
@@ -102,6 +108,7 @@ def weekly_report(date_from: date | None = None, nights: int = 7):
                 AND d.source_hash=md5(s.payload::text) WHERE s.property_id=%s
             ''', (PROPERTY_ID,)).fetchone()
             state = connection.execute('SELECT completed, updated_at FROM tl_sync_state WHERE property_id=%s', (PROPERTY_ID,)).fetchone()
+            tariff_snapshot = read_snapshot(connection, SNAPSHOT)
             records = connection.execute('''SELECT d.payload, s.payload->>'status'
                 FROM tl_booking_summaries s JOIN tl_booking_details d USING (property_id, booking_number)
                 WHERE s.property_id=%s AND d.source_hash=md5(s.payload::text)
@@ -111,6 +118,6 @@ def weekly_report(date_from: date | None = None, nights: int = 7):
                     'summary_import_completed': bool(state and state[0]),
                     'imported_dataset_complete': bool(total and total == current and state and state[0]),
                     'last_summary_import_at': summary_at, 'last_detail_import_at': detail_at}
-        return build_report(records, date_from, date_to, coverage, state[1] if state else None, now)
+        return build_report(records, date_from, date_to, coverage, state[1] if state else None, now, tariff_snapshot)
     except psycopg.Error:
         raise HTTPException(503, 'Database operation failed') from None

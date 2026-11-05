@@ -1,11 +1,12 @@
 import unittest
-from datetime import date
+from datetime import date, datetime, timezone
 from unittest.mock import patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from tariff_pricing import SNAPSHOT, exported_rows, compare_tariffs, router
 from database_pricing import build_recommendations
-from test_database_pricing import snapshot, NOW
+from test_database_pricing import snapshot
+NOW = datetime(2026,11,2,7,tzinfo=timezone.utc)
 
 
 def report(day='2026-11-02'):

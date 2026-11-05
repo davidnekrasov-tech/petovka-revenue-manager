@@ -1,8 +1,10 @@
 """Read TravelLine XLSX export into a lossless, deduplicated snapshot (stdlib only)."""
 import hashlib
 import json
+import re
 from datetime import date, timedelta
 from pathlib import Path
+from io import BytesIO
 from zipfile import ZipFile
 from xml.etree import ElementTree as ET
 
@@ -11,8 +13,11 @@ MONTHS={'янв':1,'февр':2,'мар':3,'апр':4,'мая':5,'июн':6,'и�
 CATEGORIES=("Одноместный стандарт","Стандартный двухместный номер с одной большой или двумя раздельными кроватями","Улучшенный номер с большой двуспальной кроватью","Комфорт с большой двуспальной кроватью")
 
 
-def extract(path):
-    with ZipFile(path) as archive:
+def extract(path, exported_at):
+    data = path if isinstance(path, bytes) else Path(path).read_bytes()
+    with ZipFile(BytesIO(data)) as archive:
+        if len(archive.infolist()) > 100 or sum(i.file_size for i in archive.infolist()) > 20_000_000:
+            raise ValueError('Workbook is too large')
         strings=[]
         if 'xl/sharedStrings.xml' in archive.namelist():
             strings=[''.join(x.itertext()) for x in ET.fromstring(archive.read('xl/sharedStrings.xml')).findall('s:si',NS)]
@@ -29,13 +34,17 @@ def extract(path):
                 col=''.join(x for x in cell.attrib['r'] if x.isalpha())
                 cells[col]=value or None
             rows.append(cells)
-    dates={};year=2026
+    if not rows: raise ValueError('Empty workbook')
+    years = re.findall(r'20\d{2}', rows[0].get('A') or '')
+    if not years: raise ValueError('Missing export year')
+    dates={};year=int(years[0])
     for col,value in rows[0].items():
         if col=='A' or not value:continue
         if value.isdigit() and len(value)==4:year=int(value);continue
         day,month=value.split()
         dates[col]=date(year,MONTHS[month],int(day)).isoformat()
     ordered=list(dates.values())
+    if not ordered or len(ordered)>732: raise ValueError("Invalid date range")
     if ordered!=[(date.fromisoformat(ordered[0])+timedelta(days=i)).isoformat() for i in range(len(ordered))]:
         raise ValueError('Non-contiguous export dates')
     plans=[];series=[];lookup={};plan=category=None
@@ -45,6 +54,7 @@ def extract(path):
             plan={'name':label[:-5],'currency':'RUB','categories':{}};plans.append(plan);category=None
         elif label in CATEGORIES:
             if plan is None:raise ValueError('Missing tariff')
+            if label in plan['categories']: raise ValueError('Duplicate category')
             category={};plan['categories'][label]=category
         elif label:
             if category is None:raise ValueError('Unscoped row: '+label)
@@ -59,14 +69,14 @@ def extract(path):
             category[label]=lookup[values]
     if len({p['name'] for p in plans})!=len(plans):raise ValueError('Duplicate tariff')
     if any(set(p['categories'])!=set(CATEGORIES) for p in plans):raise ValueError('Incomplete categories')
-    return {'property_id':'4950','exported_at':'2026-10-31T18:58:00+03:00',
-            'source_sha256':hashlib.sha256(Path(path).read_bytes()).hexdigest(),
+    return {'property_id':'4950','exported_at':exported_at,
+            'source_sha256':hashlib.sha256(data).hexdigest(),
             'date_from':ordered[0],'date_to_exclusive':(date.fromisoformat(ordered[-1])+timedelta(days=1)).isoformat(),
             'days':len(ordered),'series':series,'tariffs':plans}
 
 
 if __name__=='__main__':
     import sys
-    data=extract(sys.argv[1])
+    data=extract(sys.argv[1], sys.argv[3])
     Path(sys.argv[2]).write_text(json.dumps(data,ensure_ascii=False,separators=(',',':'))+'\n')
     print(json.dumps({'tariffs':len(data['tariffs']),'days':data['days'],'series':len(data['series'])}))

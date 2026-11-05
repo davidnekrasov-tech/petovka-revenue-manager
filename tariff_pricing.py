@@ -5,11 +5,27 @@ from decimal import Decimal, ROUND_HALF_UP, ROUND_CEILING
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
 
-from booking_storage import authorize
+from booking_storage import authorize, connect
+from excel_prices import active_snapshot, use_snapshot, read_snapshot
+import psycopg
+from datetime import datetime, timezone
 from database_pricing import pricing_from_database
 from pricing import calculate_category_price
 
 SNAPSHOT=json.loads(Path(__file__).with_name('tariff_snapshot.json').read_text())
+def current_snapshot():
+    value = active_snapshot.get()
+    return SNAPSHOT if value is None else value
+
+
+def database_snapshot():
+    try:
+        with connect() as connection:
+            return read_snapshot(connection, SNAPSHOT)
+    except psycopg.Error:
+        raise HTTPException(503, 'Could not read prices from database') from None
+
+
 router=APIRouter(prefix='/api/storage',tags=['Tariffs from export'],dependencies=[Depends(authorize)])
 
 # Read from the hotel's inheritance settings on 2026-10-31.
@@ -45,7 +61,7 @@ def linked_price(plan_name, category, night, label, price, factor):
     rule = RULES.get(plan_name)
     if rule is None:
         return None, None, 'unverified_inheritance_rule'
-    anchor = next(p for p in SNAPSHOT['tariffs'] if p['name'] == ANCHOR)
+    anchor = next(p for p in current_snapshot()['tariffs'] if p['name'] == ANCHOR)
     anchor_rows = exported_rows(anchor['categories'][category], night)
     raw = anchor_rows.get(label) if anchor_rows else None
     if raw is None or Decimal(raw) <= 0:
@@ -62,28 +78,33 @@ def linked_price(plan_name, category, night, label, price, factor):
 
 
 def source_info():
-    return {k:SNAPSHOT[k] for k in ('property_id','exported_at','date_from','date_to_exclusive','source_sha256')}
+    return {k:current_snapshot()[k] for k in ('property_id','exported_at','date_from','date_to_exclusive','source_sha256','uploaded_at','filename','timestamp_basis','property_id_basis') if k in current_snapshot()}
 
 
 def exported_rows(config, night):
-    index=(date.fromisoformat(night)-date.fromisoformat(SNAPSHOT['date_from'])).days
-    if not 0 <= index < SNAPSHOT['days']:
+    index=(date.fromisoformat(night)-date.fromisoformat(current_snapshot()['date_from'])).days
+    if not 0 <= index < current_snapshot()['days']:
         return None
     result={}
     for label,series_id in config.items():
-        result[label]=next(value for end,value in SNAPSHOT['series'][series_id] if index<end)
+        result[label]=next(value for end,value in current_snapshot()['series'][series_id] if index<end)
     return result
 
 
 @router.get('/tariffs')
 def tariffs():
+    with use_snapshot(database_snapshot()):
+        return tariff_catalogue()
+
+
+def tariff_catalogue():
     return {'status':'ok','source':source_info(),'automatically_updated':False,
-            'tariff_count':len(SNAPSHOT['tariffs']),
-            'tariffs':[{'name':p['name'],'currency':p['currency'],'categories':list(p['categories'])} for p in SNAPSHOT['tariffs']]}
+            'tariff_count':len(current_snapshot()['tariffs']),
+            'tariffs':[{'name':p['name'],'currency':p['currency'],'categories':list(p['categories'])} for p in current_snapshot()['tariffs']]}
 
 
 def compare_tariffs(pricing, tariff_name=None):
-    plans=[p for p in SNAPSHOT['tariffs'] if tariff_name is None or p['name']==tariff_name]
+    plans=[p for p in current_snapshot()['tariffs'] if tariff_name is None or p['name']==tariff_name]
     if not plans:raise HTTPException(404,'Tariff name is not in the export')
     days=[]
     for day in pricing['dates']:
@@ -95,6 +116,10 @@ def compare_tariffs(pricing, tariff_name=None):
                 restrictions=[]
                 if rows is None:restrictions.append('date_outside_export')
                 elif rows.get('Close/Open') is not None:restrictions.append('exported_close_marker')
+                stamp=datetime.fromisoformat(current_snapshot()['exported_at'])
+                generated=pricing.get('freshness',{}).get('generated_at')
+                now=datetime.fromisoformat(generated) if isinstance(generated,str) else generated or datetime.now(timezone.utc)
+                if not 0 <= (now-stamp).total_seconds() <= 86400:restrictions.append('tariff_export_stale')
                 factor=calculate_category_price(name,observed['occupied'],day['occupancy_percent'])['multiplier']
                 placements={}
                 for label in ('Цена 1 осн.','Цена 2 осн.'):
@@ -147,9 +172,18 @@ def compare_tariffs(pricing, tariff_name=None):
 
 @router.get('/pricing/tariffs')
 def pricing_tariffs(date_from:date,date_to:date,tariff_name:str|None=None):
+    if not 1 <= (date_to-date_from).days <= 31:
+        raise HTTPException(422,'Tariff comparison range must contain 1 to 31 nights')
+    if tariff_name is not None and tariff_name not in RULES:
+        raise HTTPException(404,'Tariff name is not in the export')
+    with use_snapshot(database_snapshot()):
+        return pricing_tariffs_scoped(date_from,date_to,tariff_name)
+
+
+def pricing_tariffs_scoped(date_from:date,date_to:date,tariff_name:str|None=None):
     """All exported tariffs by default. Dates checkout-exclusive; optional exact tariff name."""
     if not 1 <= (date_to-date_from).days <= 31:
         raise HTTPException(422,'Tariff comparison range must contain 1 to 31 nights')
-    if tariff_name is not None and tariff_name not in {p['name'] for p in SNAPSHOT['tariffs']}:
+    if tariff_name is not None and tariff_name not in {p['name'] for p in current_snapshot()['tariffs']}:
         raise HTTPException(404,'Tariff name is not in the export')
     return compare_tariffs(pricing_from_database(date_from,date_to),tariff_name)

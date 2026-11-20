@@ -45,6 +45,12 @@ RULES = {
 ANCHOR = 'Тариф с надбавкой для ОТА'
 
 
+def export_rules():
+    if current_snapshot().get('observed_ota_multiplier') == '1.20':
+        return {**RULES, ANCHOR: ('1.20', '0'), 'Тариф с завтраком для OTA': ('1.20', '900')}
+    return RULES
+
+
 def round_tariff_price(plan_name, value):
     # Verified in this tariff's main settings, not inferred from export values.
     if plan_name == 'Лучшая цена дня с завтраком!':
@@ -58,7 +64,8 @@ def linked_price(plan_name, category, night, label, price, factor):
     Validate the observed adult placement against the rule before applying it:
     overrides or rules not covering a placement must not silently get repriced.
     """
-    rule = RULES.get(plan_name)
+    rules = export_rules()
+    rule = rules.get(plan_name)
     if rule is None:
         return None, None, 'unverified_inheritance_rule'
     anchor = next(p for p in current_snapshot()['tariffs'] if p['name'] == ANCHOR)
@@ -66,7 +73,7 @@ def linked_price(plan_name, category, night, label, price, factor):
     raw = anchor_rows.get(label) if anchor_rows else None
     if raw is None or Decimal(raw) <= 0:
         return None, None, 'missing_parent_price_basis'
-    base = (Decimal(raw) / Decimal('1.18')).quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
+    base = (Decimal(raw) / Decimal(rules[ANCHOR][0])).quantize(Decimal('.01'), rounding=ROUND_HALF_UP)
     multiplier, meal = map(Decimal, rule)
     beds = 1 if label == 'Цена 1 осн.' else 2
     expected = round_tariff_price(plan_name, (base + beds * meal) * multiplier)
@@ -147,10 +154,11 @@ def compare_tariffs(pricing, tariff_name=None):
                     'occupancy_percent':observed['occupancy_percent'],'occupancy_multiplier':factor,
                     'placements':placements,'exported_rows':rows,
                 }
-            rule=RULES.get(plan['name'])
+            rule=export_rules().get(plan['name'])
             results.append({'name':plan['name'],'currency':plan['currency'],
                             'inheritance':{'parent':'Базовый без завтрака','multiplier':rule[0],
-                                           'meal_per_place':rule[1],'verified_on':'2026-10-31',
+                                           'meal_per_place':rule[1],'verified_on':None if current_snapshot().get('observed_ota_multiplier') and plan['name'] in (ANCHOR, 'Тариф с завтраком для OTA') else '2026-10-31',
+                                           'basis':'export_price_crosscheck' if current_snapshot().get('observed_ota_multiplier') and plan['name'] in (ANCHOR, 'Тариф с завтраком для OTA') else 'cabinet_rule',
                                            'rounding':'ceil_ruble' if plan['name']=='Лучшая цена дня с завтраком!' else 'half_up_kopeck'} if rule else None,
                             'categories':categories})
         days.append({'date':day['date'],'occupied':day['occupied'],'capacity':day['capacity'],

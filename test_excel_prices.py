@@ -15,7 +15,7 @@ from test_tariff_pricing import report
 NOW = datetime(2026, 11, 5, 12, tzinfo=timezone.utc)
 
 
-def workbook(year=2026, incomplete=False, formula=False):
+def workbook(year=2026, incomplete=False, formula=False, english=False):
     # Minimal genuine XLSX XML shape, all 10 plans and adult placements.
     from xml.sax.saxutils import escape
     rows = [[str(year), '5 нояб', '6 нояб']]
@@ -26,6 +26,22 @@ def workbook(year=2026, incomplete=False, formula=False):
             rows.append(['Цена 1 осн.', '6000.00', '6100.00'])
             if category != 'Одноместный стандарт':
                 rows.append(['Цена 2 осн.', '6200.00', '6300.00'])
+    if english:
+        from import_tariff_export import ENGLISH_NAMES
+        translations = {russian: en for en, russian in ENGLISH_NAMES.items()}
+        rows[0][1:] = ['5 Nov', '6 Nov']
+        for row in rows[1:]:
+            label = row[0]
+            if label.endswith(', RUB'):
+                plan = label[:-5]
+                row[0] = translations.get(plan, plan) + ', RUB'
+            else:
+                row[0] = translations.get(label, label)
+                if label.startswith('Цена'):
+                    values = {'Тариф с надбавкой для ОТА': ['6000', '6240'],
+                              'Скидка 10% для постоянных гостей': ['4500', '4680'],
+                              'Лучшая цена дня без завтрака!': ['5250', '5460']}
+                    row[1:] = values.get(plan, row[1:])
     xml='<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'
     for i, values in enumerate(rows,1):
         xml+='<row>'
@@ -47,6 +63,17 @@ class ExcelTests(unittest.TestCase):
         self.assertEqual(data['date_from'],'2027-11-05')
         self.assertEqual(len(data['tariffs']),10)
         self.assertEqual(data['exported_at'],'2026-11-05T14:00:00+03:00')
+
+    def test_english_export_recognizes_current_ota_markup(self):
+        from tariff_pricing import linked_price
+        from decimal import Decimal
+        data = self.validate(workbook(english=True))
+        self.assertEqual(data['observed_ota_multiplier'], '1.20')
+        category = 'Одноместный стандарт'
+        with use_snapshot(data):
+            suggested, base, error = linked_price('Тариф с надбавкой для ОТА', category,
+                '2026-11-05', 'Цена 1 осн.', Decimal(6000), 1)
+        self.assertEqual((suggested, base, error), (Decimal(6000), Decimal(5000), None))
 
     def test_partial_wrong_property_formula_and_future_rejected(self):
         for kwargs in ({'data':workbook(incomplete=True)}, {'filename':'ID_999_prices.xlsx'},

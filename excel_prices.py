@@ -35,6 +35,37 @@ def read_snapshot(connection, fallback):
     return row[0] if row else fallback
 
 
+def has_twenty_percent_ota_markup(snapshot):
+    """Cross-check each available OTA price against two independent room-only plans."""
+    plans = {plan['name']: plan['categories'] for plan in snapshot['tariffs']}
+    ota = plans['Тариф с надбавкой для ОТА']
+    loyalty = plans['Скидка 10% для постоянных гостей']
+    direct = plans['Лучшая цена дня без завтрака!']
+    matched = False
+    for category, rows in ota.items():
+        for placement in ('Цена 1 осн.', 'Цена 2 осн.'):
+            if placement not in rows:
+                continue
+            series = [snapshot['series'][plan[category][placement]] for plan in (ota, loyalty, direct)]
+            daily = []
+            for runs in series:
+                values = []
+                for end, raw in runs:
+                    values.extend([Decimal(raw) if raw is not None else None] * (end - len(values)))
+                daily.append(values)
+            for channel, repeated_guest, public in zip(*daily):
+                if channel is None or channel == 0:
+                    continue
+                if not repeated_guest or not public:
+                    return False
+                base = channel / Decimal('1.20')
+                if (abs(base * Decimal('0.90') - repeated_guest) > Decimal('.02')
+                        or abs(base * Decimal('1.05') - public) > Decimal('.02')):
+                    return False
+                matched = True
+    return matched
+
+
 def validate_export(data, filename, exported_at, now, expected_names):
     if not re.fullmatch(r'ID_4950_[^/\\\\]+\.xlsx', filename, re.I):
         raise ValueError('Use the original ID_4950_....xlsx file from TravelLine')
@@ -58,6 +89,8 @@ def validate_export(data, filename, exported_at, now, expected_names):
                             value = Decimal(raw)
                             if not value.is_finite() or value < 0 or value > 10_000_000:
                                 raise ValueError('Invalid price')
+    if has_twenty_percent_ota_markup(snapshot):
+        snapshot['observed_ota_multiplier'] = '1.20'
     snapshot['uploaded_at'] = now.isoformat()
     snapshot['filename'] = filename
     snapshot['timestamp_basis'] = 'user_declared_export_time'

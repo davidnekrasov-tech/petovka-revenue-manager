@@ -13,6 +13,24 @@ MONTHS={'янв':1,'февр':2,'мар':3,'апр':4,'мая':5,'июн':6,'и�
 CATEGORIES=("Одноместный стандарт","Стандартный двухместный номер с одной большой или двумя раздельными кроватями","Улучшенный номер с большой двуспальной кроватью","Комфорт с большой двуспальной кроватью")
 
 
+MONTHS.update({name: i for i, name in enumerate(
+    "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(), 1)})
+MONTHS["Sept"] = 9
+ENGLISH_NAMES = {
+    "Single standard": CATEGORIES[0],
+    "Standard Double Room with one large or two single beds": CATEGORIES[1],
+    "Superior Room with a large double bed": CATEGORIES[2],
+    "Comfort with a large double bed": CATEGORIES[3],
+    "Price for 1 guest(s)": "Цена 1 осн.",
+    "Price for 2 guest(s)": "Цена 2 осн.",
+    "Premium rate for OTA": "Тариф с надбавкой для ОТА",
+    "10% discount for regular guests": "Скидка 10% для постоянных гостей",
+    "15% discount for regular guests": "Скидка 15% для постоянных гостей",
+    "Long stay": "Длительное проживание",
+    "Breakfast rate for OTA": "Тариф с завтраком для OTA",
+}
+
+
 def extract(path, exported_at):
     data = path if isinstance(path, bytes) else Path(path).read_bytes()
     with ZipFile(BytesIO(data)) as archive:
@@ -50,8 +68,9 @@ def extract(path, exported_at):
     plans=[];series=[];lookup={};plan=category=None
     for row in rows[1:]:
         label=row.get('A')
+        label=ENGLISH_NAMES.get(label, label)
         if label and label.endswith(', RUB'):
-            plan={'name':label[:-5],'currency':'RUB','categories':{}};plans.append(plan);category=None
+            plan={'name':ENGLISH_NAMES.get(label[:-5], label[:-5]),'currency':'RUB','categories':{}};plans.append(plan);category=None
         elif label in CATEGORIES:
             if plan is None:raise ValueError('Missing tariff')
             if label in plan['categories']: raise ValueError('Duplicate category')
